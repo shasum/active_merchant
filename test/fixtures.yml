@@ -329,7 +329,9 @@ first_pay:
 
 firstdata_e4:
   login: SD8821-67
-  password: T6bxSywbcccbJ19eDXNIGaCDOBg1W7T8
+  password: cBhEc4GENtZ5fnVtpb2qlrhKUDprqtar
+  key_id: 397439
+  hmac_key: _No43LuSuit6y2g6JaMJJWRafehajQKh
 
 flo2cash:
   username: SOMECREDENTIAL

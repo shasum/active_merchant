@@ -179,7 +179,9 @@ class RemoteFirstdataE4Test < Test::Unit::TestCase
 
   def test_invalid_login
     gateway = FirstdataE4Gateway.new(:login    => 'NotARealUser',
-                                     :password => 'NotARealPassword' )
+                                     :password => 'NotARealPassword',
+                                     :key_id   => 'NotARealKey',
+                                     :hmac_key => 'NotARealHMAC' )
     assert response = gateway.purchase(@amount, @credit_card, @options)
     assert_match %r{Unauthorized Request}, response.message
     assert_failure response
@@ -231,9 +233,9 @@ class RemoteFirstdataE4Test < Test::Unit::TestCase
   def test_verify_credentials
     assert @gateway.verify_credentials
 
-    gateway = FirstdataE4Gateway.new(login: 'unknown', password: 'unknown')
+    gateway = FirstdataE4Gateway.new(login: 'unknown', password: 'unknown', key_id: 'unknown', hmac_key: 'unknown')
     assert !gateway.verify_credentials
-    gateway = FirstdataE4Gateway.new(login: fixtures(:firstdata_e4)[:login], password: 'unknown')
+    gateway = FirstdataE4Gateway.new(login: fixtures(:firstdata_e4)[:login], password: 'unknown', key_id: 'unknown', hmac_key: 'unknown')
     assert !gateway.verify_credentials
   end
 
@@ -247,6 +249,7 @@ class RemoteFirstdataE4Test < Test::Unit::TestCase
     assert_scrubbed(cc_with_different_cvc.number, transcript)
     assert_scrubbed(cc_with_different_cvc.verification_value, transcript)
     assert_scrubbed(@gateway.options[:password], transcript)
+    assert_scrubbed(@gateway.options[:hmac_key], transcript)
   end
 
 end
