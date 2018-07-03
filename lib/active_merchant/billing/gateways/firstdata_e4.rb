@@ -2,8 +2,8 @@ module ActiveMerchant #:nodoc:
   module Billing #:nodoc:
     class FirstdataE4Gateway < Gateway
       # TransArmor support requires v11 or lower
-      self.test_url = 'https://api.demo.globalgatewaye4.firstdata.com/transaction/v11'
-      self.live_url = 'https://api.globalgatewaye4.firstdata.com/transaction/v11'
+      self.test_url = 'https://api.demo.globalgatewaye4.firstdata.com/transaction/v27'
+      self.live_url = 'https://api.globalgatewaye4.firstdata.com/transaction/v27'
 
       TRANSACTIONS = {
         sale:          '00',
@@ -15,14 +15,9 @@ module ActiveMerchant #:nodoc:
         store:         '05'
       }
 
-      POST_HEADERS = {
-        'Accepts' => 'application/xml',
-        'Content-Type' => 'application/xml'
-      }
-
       SUCCESS = 'true'
 
-      SENSITIVE_FIELDS = [:verification_str2, :expiry_date, :card_number]
+      SENSITIVE_FIELDS = [:cvdcode, :expiry_date, :card_number]
 
       BRANDS = {
         :visa => 'Visa',
@@ -65,16 +60,18 @@ module ActiveMerchant #:nodoc:
 
       # Create a new FirstdataE4Gateway
       #
-      # The gateway requires that a valid login and password be passed
-      # in the +options+ hash.
+      # The gateway requires that a valid login, password, key id and hamc key
+      #  be passed in the +options+ hash.
       #
       # ==== Options
       #
       # * <tt>:login</tt> --    The EXACT ID.  Also known as the Gateway ID.
       #                         (Found in your administration terminal settings)
       # * <tt>:password</tt> -- The terminal password (not your account password)
+      # * <tt>:key_id</tt> -- The Key Id found under terminal setting > API Access
+      # * <tt>:hmac_key</tt> -- The HMAC Key generated under terminal setting > API Access
       def initialize(options = {})
-        requires!(options, :login, :password)
+        requires!(options, :login, :password, :key_id, :hmac_key)
         @options = options
 
         super
@@ -143,10 +140,10 @@ module ActiveMerchant #:nodoc:
       def scrub(transcript)
         transcript
           .gsub(%r((<Card_Number>).+(</Card_Number>)), '\1[FILTERED]\2')
-          .gsub(%r((<VerificationStr2>).+(</VerificationStr2>)), '\1[FILTERED]\2')
+          .gsub(%r((<CVDCode>).+(</CVDCode>)), '\1[FILTERED]\2')
           .gsub(%r((<Password>).+(</Password>))i, '\1[FILTERED]\2')
           .gsub(%r((<CAVV>).+(</CAVV>)), '\1[FILTERED]\2')
-          .gsub(%r((Card Number : ).*\d)i, '\1[FILTERED]')
+          .gsub(%r((CARD NUMBER\s+: )#+\d+), '\1[FILTERED]')
       end
 
       def supports_network_tokenization?
@@ -179,6 +176,7 @@ module ActiveMerchant #:nodoc:
           add_credit_card(xml, credit_card_or_store_authorization, options)
         end
 
+        add_address(xml, options)
         add_customer_data(xml, options)
         add_invoice(xml, options)
         add_tax_fields(xml, options)
@@ -202,6 +200,7 @@ module ActiveMerchant #:nodoc:
         xml = Builder::XmlMarkup.new
 
         add_credit_card(xml, credit_card, options)
+        add_address(xml, options)
         add_customer_data(xml, options)
 
         xml.target!
@@ -258,19 +257,12 @@ module ActiveMerchant #:nodoc:
       end
 
       def add_credit_card_verification_strings(xml, credit_card, options)
-        address = options[:billing_address] || options[:address]
-        if address
-          address_values = []
-          [:address1, :zip, :city, :state, :country].each { |part| address_values << address[part].to_s }
-          xml.tag! 'VerificationStr1', address_values.join('|')
-        end
-
         if credit_card.is_a?(NetworkTokenizationCreditCard)
           add_network_tokenization_credit_card(xml, credit_card)
         else
           if credit_card.verification_value?
             xml.tag! 'CVD_Presence_Ind', '1'
-            xml.tag! 'VerificationStr2', credit_card.verification_value
+            xml.tag! 'CVDCode', credit_card.verification_value
           end
 
           add_card_authentication_data(xml, options)
@@ -317,8 +309,15 @@ module ActiveMerchant #:nodoc:
       end
 
       def add_address(xml, options)
-        if address = (options[:billing_address] || options[:address])
-          xml.tag! 'ZipCode', address[:zip]
+        if address = options[:billing_address] || options[:address]
+          xml.tag! 'Address' do
+            xml.tag! 'Address1', address[:address1]
+            xml.tag! 'Address2', address[:address2] if address[:address2]
+            xml.tag! 'City', address[:city]
+            xml.tag! 'State', address[:state]
+            xml.tag! 'Zip', address[:zip]
+            xml.tag! 'CountryCode', address[:country]
+          end
         end
       end
 
@@ -344,10 +343,11 @@ module ActiveMerchant #:nodoc:
         E4_BRANDS[credit_card_brand.to_sym] if credit_card_brand
       end
 
-      def commit(action, request, credit_card = nil)
+      def commit(action, data, credit_card = nil)
         url = (test? ? self.test_url : self.live_url)
+        request = build_request(action, data)
         begin
-          response = parse(ssl_post(url, build_request(action, request), POST_HEADERS))
+          response = parse(ssl_post(url, request, headers('POST', url, request)))
         rescue ResponseError => e
           response = parse_error(e.response)
         end
@@ -359,6 +359,23 @@ module ActiveMerchant #:nodoc:
           :cvv_result => response[:cvv2],
           :error_code => standard_error_code(response)
         )
+      end
+
+      def headers(method, url, request)
+        content_type = 'application/xml'
+        content_digest = Digest::SHA1.hexdigest(request)
+        sending_time = Time.now.utc.iso8601
+        payload = method + "\n" + content_type + "\n" + content_digest + "\n" + sending_time + "\n" + url.split('.com')[1]
+        hmac = OpenSSL::HMAC.digest('sha1', @options[:hmac_key], payload)
+        encoded = Base64.strict_encode64(hmac)
+
+        {
+          'x-gge4-date' => sending_time,
+          'x-gge4-content-sha1' => content_digest,
+          'Authorization' => 'GGE4_API ' + @options[:key_id].to_s + ':' + encoded,
+          'Accepts' => content_type,
+          'Content-Type' => content_type
+        }
       end
 
       def successful?(response)

@@ -8,7 +8,9 @@ class FirstdataE4Test < Test::Unit::TestCase
   def setup
     @gateway = FirstdataE4Gateway.new(
       :login    => 'A00427-01',
-      :password => 'testus'
+      :password => 'testus',
+      :key_id   => '12345',
+      :hmac_key => 'hexkey'
     )
 
     @credit_card = credit_card
@@ -157,11 +159,11 @@ class FirstdataE4Test < Test::Unit::TestCase
     assert_equal 'M', response.cvv_result['code']
   end
 
-  def test_requests_include_verification_string
+  def test_request_includes_address
     stub_comms do
       @gateway.purchase(@amount, @credit_card, @options)
     end.check_request do |endpoint, data, headers|
-      assert_match '<VerificationStr1>456 My Street|K1C2N6|Ottawa|ON|CA</VerificationStr1>', data
+      assert_match '<Address><Address1>456 My Street</Address1><Address2>Apt 1</Address2><City>Ottawa</City><State>ON</State><Zip>K1C2N6</Zip><CountryCode>CA</CountryCode></Address>', data
     end.respond_with(successful_purchase_response)
   end
 
@@ -327,7 +329,7 @@ class FirstdataE4Test < Test::Unit::TestCase
   private
 
   def assert_xml_valid_to_wsdl(data)
-    xsd = Nokogiri::XML::Schema(File.open("#{File.dirname(__FILE__)}/../../schema/firstdata_e4/v11.xsd"))
+    xsd = Nokogiri::XML::Schema(File.open("#{File.dirname(__FILE__)}/../../schema/firstdata_e4/v27.xsd"))
     doc = Nokogiri::XML(data)
     errors = xsd.validate(doc)
     assert_empty errors, "XSD validation errors in the following XML:\n#{doc}"
@@ -339,26 +341,33 @@ class FirstdataE4Test < Test::Unit::TestCase
       opened
       starting SSL for api.demo.globalgatewaye4.firstdata.com:443...
       SSL established
-      <- "POST /transaction/v11 HTTP/1.1\r\nContent-Type: application/xml\r\nAccepts: application/xml\r\nAccept-Encoding: gzip;q=1.0,deflate;q=0.6,identity;q=0.3\r\nAccept: */*\r\nUser-Agent: Ruby\r\nConnection: close\r\nHost: api.demo.globalgatewaye4.firstdata.com\r\nContent-Length: 593\r\n\r\n"
-      <- "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Transaction><ExactID>REDACTED</ExactID><Password>REDACTED</Password><Transaction_Type>00</Transaction_Type><DollarAmount>1.00</DollarAmount><Card_Number>4242424242424242</Card_Number><Expiry_Date>0916</Expiry_Date><CardHoldersName>Longbob Longsen</CardHoldersName><CardType>Visa</CardType><VerificationStr1>1234 My Street|K1C2N6|Ottawa|ON|CA</VerificationStr1><CVD_Presence_Ind>1</CVD_Presence_Ind><VerificationStr2>123</VerificationStr2><Reference_No>1</Reference_No><Reference_3>Store Purchase</Reference_3><CAVV>lol</CAVV><XID/><Ecommerce_Flag/></Transaction>"
+      <- "POST /transaction/v27 HTTP/1.1\r\nContent-Type: application/xml\r\nX-Gge4-Date: 2018-07-03T07:35:34Z\r\nX-Gge4-Content-Sha1: 5335f81daf59c493fe5d4c18910d17eba69558d4\r\nAuthorization: GGE4_API 397439:iwaxRr8f3GQIMSucb+dmDeiwoAk=\r\nAccepts: application/xml\r\nConnection: close\r\nAccept-Encoding: gzip;q=1.0,deflate;q=0.6,identity;q=0.3\r\nAccept: */*\r\nUser-Agent: Ruby\r\nHost: api.demo.globalgatewaye4.firstdata.com\r\nContent-Length: 807\r\n\r\n"
+      <- "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Transaction xmlns=\"http://secure2.e-xact.com/vplug-in/transaction/rpc-enc/encodedTypes\"><ExactID>SD8821-67</ExactID><Password>cBhEc4GENtZ5fnVtpb2qlrhKUDprqtar</Password><Transaction_Type>00</Transaction_Type><DollarAmount>1.00</DollarAmount><Currency>USD</Currency><Card_Number>4242424242424242</Card_Number><Expiry_Date>0919</Expiry_Date><CardHoldersName>Longbob Longsen</CardHoldersName><CardType>Visa</CardType><Ecommerce_Flag>07</Ecommerce_Flag><CVD_Presence_Ind>1</CVD_Presence_Ind><CVDCode>123</CVDCode><CAVV/><XID/><Address><Address1>456 My Street</Address1><Address2>Apt 1</Address2><City>Ottawa</City><State>ON</State><Zip>K1C2N6</Zip><CountryCode>CA</CountryCode></Address><Reference_No>1</Reference_No><Reference_3>Store Purchase</Reference_3></Transaction>"
       -> "HTTP/1.1 201 Created\r\n"
-      -> "Cache-Control: max-age=0, private, must-revalidate\r\n"
+      -> "Server: nginx\r\n"
+      -> "Date: Tue, 03 Jul 2018 07:35:34 GMT\r\n"
       -> "Content-Type: application/xml; charset=utf-8\r\n"
-      -> "Date: Mon, 26 Jan 2015 17:11:44 GMT\r\n"
-      -> "ETag: \"0a9a542fbfc55846e0ebe471b5725fe8\"\r\n"
-      -> "Location: https://api.demo.globalgatewaye4.firstdata.com/transaction/v11/42930941\r\n"
-      -> "Server: Apache\r\n"
-      -> "Status: 201\r\n"
-      -> "X-Rack-Cache: invalidate, pass\r\n"
-      -> "X-Request-Id: e0fabf89d7d7272cab4d4d743327d036\r\n"
-      -> "X-UA-Compatible: IE=Edge,chrome=1\r\n"
-      -> "Content-Length: 2872\r\n"
-      -> "Connection: Close\r\n"
+      -> "Transfer-Encoding: chunked\r\n"
+      -> "Connection: close\r\n"
+      -> "X-Frame-Options: SAMEORIGIN\r\n"
+      -> "X-XSS-Protection: 1; mode=block\r\n"
+      -> "X-Content-Type-Options: nosniff\r\n"
+      -> "X-GGE4-Date: 2018-07-03T07:35:34Z\r\n"
+      -> "X-GGE4-CONTENT-SHA1: 87ae8c40ae5afbfd060c7569645f3f6b4045994f\r\n"
+      -> "Authorization: GGE4_API 397439:dPOI+d2MkNJjBJhHTYUo0ieILw4=\r\n"
+      -> "Pragma: no-cache\r\n"
+      -> "Expires: Tue, 03 Jul 2018 06:35:34 GMT\r\n"
+      -> "Cache-Control: no-store, no-cache\r\n"
+      -> "X-Request-Id: 0f9ba7k2rd80a2tpch40\r\n"
+      -> "Location: https://api.demo.globalgatewaye4.firstdata.com/transaction/v27/2264726018\r\n"
+      -> "Status: 201 Created\r\n"
+      -> "Strict-Transport-Security: max-age=31536000; includeSubDomains\r\n"
+      -> "Strict-Transport-Security: max-age=315360000; includeSubdomains\r\n"
       -> "\r\n"
-      reading 2872 bytes...
-      -> "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<TransactionResult>\n  <ExactID>AD2327-05</ExactID>\n  <Password></Password>\n  <Transaction_Type>00</Transaction_Type>\n  <DollarAmount>1.0</DollarAmount>\n  <SurchargeAmount></SurchargeAmount>\n  <Card_Number>############4242</Card_Number>\n  <Transaction_Tag>42930941</Transaction_Tag>\n  <Track1></Track1>\n  <Track2></Track2>\n  <PAN></PAN>\n  <Authorization_Num>ET151682</Authorization_Num>\n  <Expiry_Date>0916</Expiry_Date>\n  <CardHoldersName>Longbob Longsen</CardHoldersName>\n  <VerificationStr1>1234 My Street|K1C2N6|Ottawa|ON|CA</VerificationStr1>\n  <VerificationStr2>123</VerificationStr2>\n  <CVD_Presence_Ind>0</CVD_Presence_Ind>\n  <ZipCode></ZipCode>\n  <Tax1Amount></Tax1Amount>\n  <Tax1Number></Tax1Number>\n  <Tax2Amount></Tax2Amount>\n  <Tax2Number></Tax2Number>\n  <Secure_AuthRequired></Secure_AuthRequired>\n  <Secure_AuthResult></Secure_AuthResult>\n  <Ecommerce_Flag></Ecommerce_Flag>\n  <XID></XID>\n  <CAVV>lol</CAVV>\n  <CAVV_Algorithm></CAVV_Algorithm>\n  <Reference_No>1</Reference_No>\n  <Customer_Ref></Customer_Ref>\n  <Reference_3>Store Purchase</Reference_3>\n  <Language></Language>\n  <Client_IP>216.191.105.146</Client_IP>\n  <Client_Email></Client_Email>\n  <Transaction_Error>false</Transaction_Error>\n  <Transaction_Approved>true</Transaction_Approved>\n  <EXact_Resp_Code>00</EXact_Resp_Code>\n  <EXact_Message>Transaction Normal</EXact_Message>\n  <Bank_Resp_Code>100</Bank_Resp_Code>\n  <Bank_Message>Approved</Bank_Message>\n  <Bank_Resp_Code_2></Bank_Resp_Code_2>\n  <SequenceNo>106826</SequenceNo>\n  <AVS>1</AVS>\n  <CVV2>M</CVV2>\n  <Retrieval_Ref_No>0025564</Retrieval_Ref_No>\n  <CAVV_Response></CAVV_Response>\n  <Currency>USD</Currency>\n  <AmountRequested></AmountRequested>\n  <PartialRedemption>false</PartialRedemption>\n  <MerchantName>Shopify DEMO0678</MerchantName>\n  <MerchantAddress>126 York Street</MerchantAddress>\n  <MerchantCity>Ottawa</MerchantCity>\n  <MerchantProvince>Alabama</MerchantProvince>\n  <MerchantCountry>Canada</MerchantCountry>\n  <MerchantPostal>K1N 5T5</MerchantPostal>\n  <MerchantURL>www.shopify.com</MerchantURL>\n  <TransarmorToken></TransarmorToken>\n  <CardType>Visa</CardType>\n  <CurrentBalance></CurrentBalance>\n  <PreviousBalance></PreviousBalance>\n  <EAN></EAN>\n  <CardCost></CardCost>\n  <VirtualCard>false</VirtualCard>\n  <CTR>=========== TRANSACTION RECORD ==========\nShopify DEMO0678\n126 York Street\nOttawa, AL K1N 5T5\nCanada\nwww.shopify.com\n\nTY"
-      -> "PE: Purchase\n\nACCT: Visa  $ 1.00 USD\n\nCARDHOLDER NAME : Longbob Longsen\nCARD NUMBER     : ############4242\nDATE/TIME       : 26 Jan 15 12:11:44\nREFERENCE #     :  106826 M\nAUTHOR. #       : ET151682\nTRANS. REF.     : 1\n\n    Approved - Thank You 100\n\n\nPlease retain this copy for your records.\n\nCardholder will pay above amount to card\nissuer pursuant to cardholder agreement.\n=========================================</CTR>\n</TransactionResult>\n"
-      read 2872 bytes
+      -> "2da\r\n"
+      reading 2944 bytes...
+      -> "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<TransactionResult>\n  <ExactID>SD8821-67</ExactID>\n  <Password/>\n  <Transaction_Type>00</Transaction_Type>\n  <DollarAmount>1.0</DollarAmount>\n  <SurchargeAmount/>\n  <Card_Number>############4242</Card_Number>\n  <Transaction_Tag>2264726018</Transaction_Tag>\n  <SplitTenderID/>\n  <Track1/>\n  <Track2/>\n  <PAN/>\n  <Authorization_Num>ET121995</Authorization_Num>\n  <Expiry_Date>0919</Expiry_Date>\n  <CardHoldersName>Longbob Longsen</CardHoldersName>\n  <CVD_Presence_Ind>1</CVD_Presence_Ind>\n  <ZipCode/>\n  <Tax1Amount/>\n  <Tax1Number/>\n  <Tax2Amount/>\n  <Tax2Number/>\n  <Secure_AuthRequired/>\n  <Secure_AuthResult/>\n  <Ecommerce_Flag>7</Ecommerce_Flag>\n  <XID/>\n  <CAVV/>\n  <Reference_No>1</Reference_No>\n  <Customer_Ref/>\n  <Reference_3>Store Purchase</Reference_3>\n  <Language/>\n  <Client_IP/>\n  <Client_Email/>\n  <User_Name/>\n  <Transaction_Error>false</Transaction_Error>\n  <Transaction_Approved>true</Transaction_Approved>\n  <EXact_Resp_Code>00</EXact_Resp_Code>\n  <EXact_Message>Transaction Normal</EXact_Message>\n  <Bank_Resp_Code>100</Bank_Resp_Code>\n  <Bank_Message>Approved</Bank_Message>\n  <Bank_Resp_Code_2/>\n  <SequenceNo>001157</SequenceNo>\n  <AVS>4</AVS>\n  <CVV2>M</CVV2>\n  <Retrieval_Ref_No>1196543</Retrieval_Ref_No>\n  <CAVV_Response/>\n  <Currency>USD</Currency>\n  <AmountRequested/>\n  <PartialRedemption>false</PartialRedemption>\n  <MerchantName>Spreedly DEMO0095</MerchantName>\n  <MerchantAddress>123 Testing</MerchantAddress>\n  <MerchantCity>Durham</MerchantCity>\n  <MerchantProvince>North Carolina</MerchantProvince>\n  <MerchantCountry>United States</MerchantCountry>\n  <MerchantPostal>27701</MerchantPostal>\n  <MerchantURL/>\n  <TransarmorToken/>\n  <CardType>Visa</CardType>\n  <CurrentBalance/>\n  <PreviousBalance/>\n  <EAN/>\n  <CardCost/>\n  <VirtualCard>false</VirtualCard>\n  <CTR>========== TRANSACTION RECORD ==========\nSpreedly DEMO0095\n123 Testing\nDurham, NC 27701\nUnited States\n\n\nTYPE: Purchase\n\nACCT: Visa                    $ 1.00 USD\n\nCARDHOLDER NAME : Longbob Longsen\nCARD NUMBER     : ############4242\nDATE/TIME       : 03 Jul 18 03:35:34\nREFERENCE #     : 03 001157 M\nAUTHOR. #       : ET121995\nTRANS. REF.     : 1\n\n    Approved - Thank You 100\n\n\nPlease retain this copy for your records.\n\nCardholder will pay above amount to\ncard issuer pursuant to cardholder\nagreement.\n========================================</CTR>\n  <FraudSuspected/>\n  <Address>\n    <Address1>456 My Street</Address1>\n    <Address2>Apt 1</Address2>\n    <City>Ottawa</City>\n    <State>ON</State>\n    <Zip>K1C2N6</Zip>\n    <CountryCode>CA</CountryCode>\n  </Address>\n  <CVDCode>123</CVDCode>\n  <SplitShipmentNumber/>\n</TransactionResult>\n"
+      read 2944 bytes
       Conn close
     PRE_SCRUBBED
   end
@@ -369,26 +378,33 @@ class FirstdataE4Test < Test::Unit::TestCase
       opened
       starting SSL for api.demo.globalgatewaye4.firstdata.com:443...
       SSL established
-      <- "POST /transaction/v11 HTTP/1.1\r\nContent-Type: application/xml\r\nAccepts: application/xml\r\nAccept-Encoding: gzip;q=1.0,deflate;q=0.6,identity;q=0.3\r\nAccept: */*\r\nUser-Agent: Ruby\r\nConnection: close\r\nHost: api.demo.globalgatewaye4.firstdata.com\r\nContent-Length: 593\r\n\r\n"
-      <- "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Transaction><ExactID>REDACTED</ExactID><Password>[FILTERED]</Password><Transaction_Type>00</Transaction_Type><DollarAmount>1.00</DollarAmount><Card_Number>[FILTERED]</Card_Number><Expiry_Date>0916</Expiry_Date><CardHoldersName>Longbob Longsen</CardHoldersName><CardType>Visa</CardType><VerificationStr1>1234 My Street|K1C2N6|Ottawa|ON|CA</VerificationStr1><CVD_Presence_Ind>1</CVD_Presence_Ind><VerificationStr2>[FILTERED]</VerificationStr2><Reference_No>1</Reference_No><Reference_3>Store Purchase</Reference_3><CAVV>[FILTERED]</CAVV><XID/><Ecommerce_Flag/></Transaction>"
+      <- "POST /transaction/v27 HTTP/1.1\r\nContent-Type: application/xml\r\nX-Gge4-Date: 2018-07-03T07:35:34Z\r\nX-Gge4-Content-Sha1: 5335f81daf59c493fe5d4c18910d17eba69558d4\r\nAuthorization: GGE4_API 397439:iwaxRr8f3GQIMSucb+dmDeiwoAk=\r\nAccepts: application/xml\r\nConnection: close\r\nAccept-Encoding: gzip;q=1.0,deflate;q=0.6,identity;q=0.3\r\nAccept: */*\r\nUser-Agent: Ruby\r\nHost: api.demo.globalgatewaye4.firstdata.com\r\nContent-Length: 807\r\n\r\n"
+      <- "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Transaction xmlns=\"http://secure2.e-xact.com/vplug-in/transaction/rpc-enc/encodedTypes\"><ExactID>SD8821-67</ExactID><Password>[FILTERED]</Password><Transaction_Type>00</Transaction_Type><DollarAmount>1.00</DollarAmount><Currency>USD</Currency><Card_Number>[FILTERED]</Card_Number><Expiry_Date>0919</Expiry_Date><CardHoldersName>Longbob Longsen</CardHoldersName><CardType>Visa</CardType><Ecommerce_Flag>07</Ecommerce_Flag><CVD_Presence_Ind>1</CVD_Presence_Ind><CVDCode>[FILTERED]</CVDCode><CAVV/><XID/><Address><Address1>456 My Street</Address1><Address2>Apt 1</Address2><City>Ottawa</City><State>ON</State><Zip>K1C2N6</Zip><CountryCode>CA</CountryCode></Address><Reference_No>1</Reference_No><Reference_3>Store Purchase</Reference_3></Transaction>"
       -> "HTTP/1.1 201 Created\r\n"
-      -> "Cache-Control: max-age=0, private, must-revalidate\r\n"
+      -> "Server: nginx\r\n"
+      -> "Date: Tue, 03 Jul 2018 07:35:34 GMT\r\n"
       -> "Content-Type: application/xml; charset=utf-8\r\n"
-      -> "Date: Mon, 26 Jan 2015 17:11:44 GMT\r\n"
-      -> "ETag: \"0a9a542fbfc55846e0ebe471b5725fe8\"\r\n"
-      -> "Location: https://api.demo.globalgatewaye4.firstdata.com/transaction/v11/42930941\r\n"
-      -> "Server: Apache\r\n"
-      -> "Status: 201\r\n"
-      -> "X-Rack-Cache: invalidate, pass\r\n"
-      -> "X-Request-Id: e0fabf89d7d7272cab4d4d743327d036\r\n"
-      -> "X-UA-Compatible: IE=Edge,chrome=1\r\n"
-      -> "Content-Length: 2872\r\n"
-      -> "Connection: Close\r\n"
+      -> "Transfer-Encoding: chunked\r\n"
+      -> "Connection: close\r\n"
+      -> "X-Frame-Options: SAMEORIGIN\r\n"
+      -> "X-XSS-Protection: 1; mode=block\r\n"
+      -> "X-Content-Type-Options: nosniff\r\n"
+      -> "X-GGE4-Date: 2018-07-03T07:35:34Z\r\n"
+      -> "X-GGE4-CONTENT-SHA1: 87ae8c40ae5afbfd060c7569645f3f6b4045994f\r\n"
+      -> "Authorization: GGE4_API 397439:dPOI+d2MkNJjBJhHTYUo0ieILw4=\r\n"
+      -> "Pragma: no-cache\r\n"
+      -> "Expires: Tue, 03 Jul 2018 06:35:34 GMT\r\n"
+      -> "Cache-Control: no-store, no-cache\r\n"
+      -> "X-Request-Id: 0f9ba7k2rd80a2tpch40\r\n"
+      -> "Location: https://api.demo.globalgatewaye4.firstdata.com/transaction/v27/2264726018\r\n"
+      -> "Status: 201 Created\r\n"
+      -> "Strict-Transport-Security: max-age=31536000; includeSubDomains\r\n"
+      -> "Strict-Transport-Security: max-age=315360000; includeSubdomains\r\n"
       -> "\r\n"
-      reading 2872 bytes...
-      -> "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<TransactionResult>\n  <ExactID>AD2327-05</ExactID>\n  <Password></Password>\n  <Transaction_Type>00</Transaction_Type>\n  <DollarAmount>1.0</DollarAmount>\n  <SurchargeAmount></SurchargeAmount>\n  <Card_Number>[FILTERED]</Card_Number>\n  <Transaction_Tag>42930941</Transaction_Tag>\n  <Track1></Track1>\n  <Track2></Track2>\n  <PAN></PAN>\n  <Authorization_Num>ET151682</Authorization_Num>\n  <Expiry_Date>0916</Expiry_Date>\n  <CardHoldersName>Longbob Longsen</CardHoldersName>\n  <VerificationStr1>1234 My Street|K1C2N6|Ottawa|ON|CA</VerificationStr1>\n  <VerificationStr2>[FILTERED]</VerificationStr2>\n  <CVD_Presence_Ind>0</CVD_Presence_Ind>\n  <ZipCode></ZipCode>\n  <Tax1Amount></Tax1Amount>\n  <Tax1Number></Tax1Number>\n  <Tax2Amount></Tax2Amount>\n  <Tax2Number></Tax2Number>\n  <Secure_AuthRequired></Secure_AuthRequired>\n  <Secure_AuthResult></Secure_AuthResult>\n  <Ecommerce_Flag></Ecommerce_Flag>\n  <XID></XID>\n  <CAVV>[FILTERED]</CAVV>\n  <CAVV_Algorithm></CAVV_Algorithm>\n  <Reference_No>1</Reference_No>\n  <Customer_Ref></Customer_Ref>\n  <Reference_3>Store Purchase</Reference_3>\n  <Language></Language>\n  <Client_IP>216.191.105.146</Client_IP>\n  <Client_Email></Client_Email>\n  <Transaction_Error>false</Transaction_Error>\n  <Transaction_Approved>true</Transaction_Approved>\n  <EXact_Resp_Code>00</EXact_Resp_Code>\n  <EXact_Message>Transaction Normal</EXact_Message>\n  <Bank_Resp_Code>100</Bank_Resp_Code>\n  <Bank_Message>Approved</Bank_Message>\n  <Bank_Resp_Code_2></Bank_Resp_Code_2>\n  <SequenceNo>106826</SequenceNo>\n  <AVS>1</AVS>\n  <CVV2>M</CVV2>\n  <Retrieval_Ref_No>0025564</Retrieval_Ref_No>\n  <CAVV_Response></CAVV_Response>\n  <Currency>USD</Currency>\n  <AmountRequested></AmountRequested>\n  <PartialRedemption>false</PartialRedemption>\n  <MerchantName>Shopify DEMO0678</MerchantName>\n  <MerchantAddress>126 York Street</MerchantAddress>\n  <MerchantCity>Ottawa</MerchantCity>\n  <MerchantProvince>Alabama</MerchantProvince>\n  <MerchantCountry>Canada</MerchantCountry>\n  <MerchantPostal>K1N 5T5</MerchantPostal>\n  <MerchantURL>www.shopify.com</MerchantURL>\n  <TransarmorToken></TransarmorToken>\n  <CardType>Visa</CardType>\n  <CurrentBalance></CurrentBalance>\n  <PreviousBalance></PreviousBalance>\n  <EAN></EAN>\n  <CardCost></CardCost>\n  <VirtualCard>false</VirtualCard>\n  <CTR>=========== TRANSACTION RECORD ==========\nShopify DEMO0678\n126 York Street\nOttawa, AL K1N 5T5\nCanada\nwww.shopify.com\n\nTY"
-      -> "PE: Purchase\n\nACCT: Visa  $ 1.00 USD\n\nCARDHOLDER NAME : Longbob Longsen\nCARD NUMBER     : ############4242\nDATE/TIME       : 26 Jan 15 12:11:44\nREFERENCE #     :  106826 M\nAUTHOR. #       : ET151682\nTRANS. REF.     : 1\n\n    Approved - Thank You 100\n\n\nPlease retain this copy for your records.\n\nCardholder will pay above amount to card\nissuer pursuant to cardholder agreement.\n=========================================</CTR>\n</TransactionResult>\n"
-      read 2872 bytes
+      -> "2da\r\n"
+      reading 2944 bytes...
+      -> "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<TransactionResult>\n  <ExactID>SD8821-67</ExactID>\n  <Password/>\n  <Transaction_Type>00</Transaction_Type>\n  <DollarAmount>1.0</DollarAmount>\n  <SurchargeAmount/>\n  <Card_Number>[FILTERED]</Card_Number>\n  <Transaction_Tag>2264726018</Transaction_Tag>\n  <SplitTenderID/>\n  <Track1/>\n  <Track2/>\n  <PAN/>\n  <Authorization_Num>ET121995</Authorization_Num>\n  <Expiry_Date>0919</Expiry_Date>\n  <CardHoldersName>Longbob Longsen</CardHoldersName>\n  <CVD_Presence_Ind>1</CVD_Presence_Ind>\n  <ZipCode/>\n  <Tax1Amount/>\n  <Tax1Number/>\n  <Tax2Amount/>\n  <Tax2Number/>\n  <Secure_AuthRequired/>\n  <Secure_AuthResult/>\n  <Ecommerce_Flag>7</Ecommerce_Flag>\n  <XID/>\n  <CAVV/>\n  <Reference_No>1</Reference_No>\n  <Customer_Ref/>\n  <Reference_3>Store Purchase</Reference_3>\n  <Language/>\n  <Client_IP/>\n  <Client_Email/>\n  <User_Name/>\n  <Transaction_Error>false</Transaction_Error>\n  <Transaction_Approved>true</Transaction_Approved>\n  <EXact_Resp_Code>00</EXact_Resp_Code>\n  <EXact_Message>Transaction Normal</EXact_Message>\n  <Bank_Resp_Code>100</Bank_Resp_Code>\n  <Bank_Message>Approved</Bank_Message>\n  <Bank_Resp_Code_2/>\n  <SequenceNo>001157</SequenceNo>\n  <AVS>4</AVS>\n  <CVV2>M</CVV2>\n  <Retrieval_Ref_No>1196543</Retrieval_Ref_No>\n  <CAVV_Response/>\n  <Currency>USD</Currency>\n  <AmountRequested/>\n  <PartialRedemption>false</PartialRedemption>\n  <MerchantName>Spreedly DEMO0095</MerchantName>\n  <MerchantAddress>123 Testing</MerchantAddress>\n  <MerchantCity>Durham</MerchantCity>\n  <MerchantProvince>North Carolina</MerchantProvince>\n  <MerchantCountry>United States</MerchantCountry>\n  <MerchantPostal>27701</MerchantPostal>\n  <MerchantURL/>\n  <TransarmorToken/>\n  <CardType>Visa</CardType>\n  <CurrentBalance/>\n  <PreviousBalance/>\n  <EAN/>\n  <CardCost/>\n  <VirtualCard>false</VirtualCard>\n  <CTR>========== TRANSACTION RECORD ==========\nSpreedly DEMO0095\n123 Testing\nDurham, NC 27701\nUnited States\n\n\nTYPE: Purchase\n\nACCT: Visa                    $ 1.00 USD\n\nCARDHOLDER NAME : Longbob Longsen\nCARD NUMBER     : [FILTERED]\nDATE/TIME       : 03 Jul 18 03:35:34\nREFERENCE #     : 03 001157 M\nAUTHOR. #       : ET121995\nTRANS. REF.     : 1\n\n    Approved - Thank You 100\n\n\nPlease retain this copy for your records.\n\nCardholder will pay above amount to\ncard issuer pursuant to cardholder\nagreement.\n========================================</CTR>\n  <FraudSuspected/>\n  <Address>\n    <Address1>456 My Street</Address1>\n    <Address2>Apt 1</Address2>\n    <City>Ottawa</City>\n    <State>ON</State>\n    <Zip>K1C2N6</Zip>\n    <CountryCode>CA</CountryCode>\n  </Address>\n  <CVDCode>[FILTERED]</CVDCode>\n  <SplitShipmentNumber/>\n</TransactionResult>\n"
+      read 2944 bytes
       Conn close
     POST_SCRUBBED
   end
@@ -410,8 +426,6 @@ class FirstdataE4Test < Test::Unit::TestCase
     <Authorization_Num>ET1700</Authorization_Num>
     <Expiry_Date>0913</Expiry_Date>
     <CardHoldersName>Fred Burfle</CardHoldersName>
-    <VerificationStr1></VerificationStr1>
-    <VerificationStr2>773</VerificationStr2>
     <CVD_Presence_Ind>0</CVD_Presence_Ind>
     <ZipCode></ZipCode>
     <Tax1Amount></Tax1Amount>
@@ -478,6 +492,14 @@ Please retain this copy for your records.
 Cardholder will pay above amount to card
 issuer pursuant to cardholder agreement.
 =========================================</CTR>
+  <Address>
+    <Address1>456 My Street</Address1>
+    <Address2>Apt 1</Address2>
+    <City>Ottawa</City>
+    <State>ON</State>
+    <Zip>K1C2N6</Zip>
+    <CountryCode>CA</CountryCode>
+  </Address>
   </TransactionResult>
     RESPONSE
   end
@@ -498,8 +520,6 @@ issuer pursuant to cardholder agreement.
     <Authorization_Num>ET1700</Authorization_Num>
     <Expiry_Date>0913</Expiry_Date>
     <CardHoldersName>Fred Burfle</CardHoldersName>
-    <VerificationStr1></VerificationStr1>
-    <VerificationStr2>773</VerificationStr2>
     <CVD_Presence_Ind>0</CVD_Presence_Ind>
     <ZipCode></ZipCode>
     <Tax1Amount></Tax1Amount>
@@ -586,8 +606,6 @@ issuer pursuant to cardholder agreement.
     <Authorization_Num>ET1700</Authorization_Num>
     <Expiry_Date>0913</Expiry_Date>
     <CardHoldersName>Fred Burfle</CardHoldersName>
-    <VerificationStr1></VerificationStr1>
-    <VerificationStr2>773</VerificationStr2>
     <CVD_Presence_Ind>0</CVD_Presence_Ind>
     <ZipCode></ZipCode>
     <Tax1Amount></Tax1Amount>
@@ -674,8 +692,6 @@ issuer pursuant to cardholder agreement.
     <Authorization_Num>ET112216</Authorization_Num>
     <Expiry_Date>0913</Expiry_Date>
     <CardHoldersName>Fred Burfle</CardHoldersName>
-    <VerificationStr1></VerificationStr1>
-    <VerificationStr2></VerificationStr2>
     <CVD_Presence_Ind>0</CVD_Presence_Ind>
     <ZipCode></ZipCode>
     <Tax1Amount></Tax1Amount>
@@ -760,8 +776,6 @@ Please retain this copy for your records.
     <Authorization_Num>ET112216</Authorization_Num>
     <Expiry_Date>0913</Expiry_Date>
     <CardHoldersName>Fred Burfle</CardHoldersName>
-    <VerificationStr1></VerificationStr1>
-    <VerificationStr2></VerificationStr2>
     <CVD_Presence_Ind>0</CVD_Presence_Ind>
     <ZipCode></ZipCode>
     <Tax1Amount></Tax1Amount>
@@ -846,8 +860,6 @@ Please retain this copy for your records.
       <Authorization_Num></Authorization_Num>
       <Expiry_Date>0911</Expiry_Date>
       <CardHoldersName>Fred Burfle</CardHoldersName>
-      <VerificationStr1></VerificationStr1>
-      <VerificationStr2>773</VerificationStr2>
       <CVD_Presence_Ind>0</CVD_Presence_Ind>
       <ZipCode></ZipCode>
       <Tax1Amount></Tax1Amount>
@@ -929,8 +941,6 @@ Please retain this copy for your records.
   <Authorization_Num>ET184931</Authorization_Num>
   <Expiry_Date>0915</Expiry_Date>
   <CardHoldersName>Longbob Longsen</CardHoldersName>
-  <VerificationStr1>1234 My Street|K1C2N6|Ottawa|ON|CA</VerificationStr1>
-  <VerificationStr2>123</VerificationStr2>
   <CVD_Presence_Ind>0</CVD_Presence_Ind>
   <ZipCode></ZipCode>
   <Tax1Amount></Tax1Amount>
@@ -1094,8 +1104,6 @@ response: !ruby/object:Net::HTTPUnauthorized
     <Authorization_Num>ET112112</Authorization_Num>
     <Expiry_Date>0913</Expiry_Date>
     <CardHoldersName>Fred Burfle</CardHoldersName>
-    <VerificationStr1></VerificationStr1>
-    <VerificationStr2></VerificationStr2>
     <CVD_Presence_Ind>0</CVD_Presence_Ind>
     <ZipCode></ZipCode>
     <Tax1Amount></Tax1Amount>
