@@ -33,7 +33,7 @@ module ActiveMerchant #:nodoc:
       end
 
       def purchase(money, payment, options={})
-        if options[:execute_threed]
+        if options[:execute_threed] || payment.is_a?(SepaBankAccount)
           authorize(money, payment, options)
         else
           MultiResponse.run do |r|
@@ -47,7 +47,7 @@ module ActiveMerchant #:nodoc:
         requires!(options, :order_id)
         post = init_post(options)
         add_invoice(post, money, options)
-        add_payment(post, payment)
+        add_payment(post, payment, options)
         add_extra_data(post, payment, options)
         add_shopper_interaction(post, payment, options)
         add_address(post, options)
@@ -80,7 +80,7 @@ module ActiveMerchant #:nodoc:
         requires!(options, :order_id)
         post = init_post(options)
         add_invoice(post, 0, options)
-        add_payment(post, credit_card)
+        add_payment(post, credit_card, options)
         add_extra_data(post, credit_card, options)
         add_recurring_contract(post, options)
         add_address(post, options)
@@ -213,15 +213,30 @@ module ActiveMerchant #:nodoc:
         post[:modificationAmount] = amount
       end
 
-      def add_payment(post, payment)
+      def add_payment(post, payment, options)
         if payment.is_a?(String)
           _, _, recurring_detail_reference = payment.split('#')
           post[:selectedRecurringDetailReference] = recurring_detail_reference
           add_recurring_contract(post, options)
+        elsif payment.is_a?(SepaBankAccount)
+          add_sepa_bank_account(post, payment, options)
         else
           add_mpi_data_for_network_tokenization_card(post, payment) if payment.is_a?(NetworkTokenizationCreditCard)
           add_card(post, payment)
         end
+      end
+
+      def add_sepa_bank_account(post, payment, options)
+        address = options[:billing_address] || options[:shipping_address]
+        country_code = address[:country] if address
+
+        bank_account = {
+          iban: payment.iban,
+          ownerName: payment.owner_name,
+          countryCode: payment.country_code || options[:country_code] || country_code
+        }
+
+        post[:bankAccount] = bank_account
       end
 
       def add_card(post, credit_card)

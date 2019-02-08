@@ -45,6 +45,12 @@ class RemoteAdyenTest < Test::Unit::TestCase
       :verification_value => nil
     )
 
+    @sepa_bank_account = ActiveMerchant::Billing::SepaBankAccount.new(
+      iban: 'DE87123456781234567890',
+      owner_name: 'A. Schneider',
+      country_code: 'DE'
+    )
+
     @options = {
       reference: '345123',
       shopper_email: 'john.smith@test.com',
@@ -130,6 +136,18 @@ class RemoteAdyenTest < Test::Unit::TestCase
     response = @gateway.purchase(@amount, @google_pay_card, @options)
     assert_success response
     assert_equal '[capture-received]', response.message
+  end
+
+  def test_successful_purchase_with_sepa
+    options = {
+      currency: 'EUR',
+      order_id: generate_unique_id()
+    }
+
+    response = @gateway.purchase(@amount, @sepa_bank_account, options)
+    assert_success response
+    assert_equal 'Received', response.message
+    assert_match %r{^\d+$}, response.params['additionalData']['sepadirectdebit.mandateId']
   end
 
   def test_failed_purchase
